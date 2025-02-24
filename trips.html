@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Style circles with a data-driven property</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-assembly/v1.3.0/assembly.min.css" rel="stylesheet">
+    <script id="search-js" defer="" src="https://api.mapbox.com/search-js/v1.0.0/web.js"></script>
+
+
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+    <script src="https://npmcdn.com/@turf/turf/turf.min.js"></script>
+
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            flex: 1;
+            height: 100vh;
+        }
+
+        .mapboxgl-popup.mapboxgl-popup-anchor-top {
+            max-width: 400px !important;
+        }
+
+        .main {
+            display: flex;
+            flex-direction: row;
+            height: 100vh;
+        }
+
+        #info {
+            display: flex;
+            flex-direction: column;
+            width: 30%;
+            padding: 20px;
+            background: white;
+            overflow-y: auto;
+            box-shadow: 0 0px 15px rgba(0, 0, 0, 0.5);
+            z-index: 1;
+        }
+
+        .location-item {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 0px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow-x: clip;
+        }
+
+        .location-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .location-name {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #333;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .location-detail {
+            margin: 4px 0;
+            color: #666;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            word-break: break-all;
+        }
+
+        .location-detail svg {
+            margin-right: 8px;
+            width: 16px;
+            height: 16px;
+        }
+
+        .priority-tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        /* New style for search control */
+        .mapboxgl-ctrl.mapboxgl-ctrl-group {
+            width: 100% !important;
+            padding: 5px !important;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="main">
+        <div id="info"></div>
+        <div id="map"></div>
+    </div>
+
+    <script>
+
+        let bounds;
+        const infoDiv = document.getElementById('info');
+
+        const appData = {
+            points: [],
+        };
+
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic2VyaHV6IiwiYSI6ImNseXpvc3RlczJpbnIya3FscDU2aHc5d3EifQ.FHtPjde_lqensSHZxqthgw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+            style: 'mapbox://styles/mapbox/light-v11',
+            zoom: 2,
+            center: { lng: -0.02665959675479712, lat: 2 },
+            projection: 'mercator'
+        });
+
+        window.addEventListener('load', () => {
+            const searchBox = new MapboxSearchBox();
+            searchBox.accessToken = mapboxgl.accessToken;
+            searchBox.marker = true;
+            searchBox.mapboxgl = mapboxgl;
+            map.addControl(searchBox);
+        });
+
+
+        map.on('load', () => {
+
+            d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRtswzG8lnl6KTXTPzM_03rP4tQsNTvdMHgSjoEgVC_t7MJIy0hEewdGnU2m9b0XwPkUPSvbyfQjMcf/pub?output=csv")
+                .then(data => {
+                    console.log(data);
+
+                    bounds = new mapboxgl.LngLatBounds();
+
+                    const points = data
+                        .filter(row => row["COORDINATES"] !== "")
+                        .map((row, index) => {
+
+                            console.log('row', row);
+                            console.log('row', row["COORDINATES"]);
+                            console.log('row', row["COORDINATES"].split(',').map(parseFloat));
+
+                            const [lat, lon] = row["COORDINATES"].split(',').map(parseFloat);
+
+                            console.log('lat, lon', lat, lon);
+
+                            bounds.extend([lon, lat]);
+
+                            return {
+                                type: 'Feature',
+                                id: index,  // Add an ID to each feature
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: [lon, lat]
+                                },
+                                properties: {
+                                    ...row
+                                }
+                            }
+                        });
+
+                    map.fitBounds(bounds, { padding: 150 });
+
+
+                    console.log(points);
+                    appData.points = points;
+                    map.getSource('points').setData({
+                        type: 'FeatureCollection',
+                        features: appData.points
+                    });
+                });
+
+            map.addSource('points', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            // Remove the existing points layer and replace with these two layers:
+            map.addLayer({
+                id: 'points-base',
+                type: 'circle',
+                source: 'points',
+                paint: {
+                    'circle-radius': 5,
+                    'circle-color': '#000',
+                    'circle-stroke-width': 1,
+                    'circle-stroke-color': 'black'
+                }
+            });
+
+            map.addLayer({
+                id: 'points-base',
+                type: 'circle',
+                source: 'points',
+                paint: {
+                    'circle-radius': 5,
+                    'circle-color': '#87CEEB',
+                }
+            });
+
+            map.addLayer({
+                id: 'points-animated',
+                type: 'circle',
+                source: 'points',
+                paint: {
+                    'circle-radius': [
+                        'interpolate',
+                        ['exponential', 1],
+                        ['number', ['get', 'animation-timestamp']],
+                        0, 5,
+                        1, 15
+                    ],
+                    'circle-stroke-width': [
+                        'interpolate',
+                        ['exponential', 1],
+                        ['number', ['get', 'animation-timestamp']],
+                        0, 0,
+                        1, 3
+                    ],
+                    'circle-stroke-color': '#87CEEB', // changed to sky blue
+                    'circle-color': 'transparent',
+                    'circle-opacity': [
+                        'interpolate',
+                        ['exponential', 1],
+                        ['number', ['get', 'animation-timestamp']],
+                        0, 0.8,
+                        1, 0
+                    ]
+                }
+            });
+
+            // Replace the animation logic with this:
+            let animationTimestamp = 0;
+            let hoveredPointId = null;
+            let animationDirection = 1; // 1 for growing, -1 for shrinking
+
+            function animate() {
+                if (hoveredPointId !== null) {
+                    // Growing
+                    if (animationDirection === 1) {
+                        animationTimestamp = Math.min(1, animationTimestamp + 0.05);
+                    }
+                    // Shrinking
+                    else {
+                        animationTimestamp = Math.max(0, animationTimestamp - 0.05);
+                        if (animationTimestamp === 0) {
+                            hoveredPointId = null;
+                            return; // Stop animation when fully shrunk
+                        }
+                    }
+
+                    map.getSource('points').setData({
+                        type: 'FeatureCollection',
+                        features: appData.points.map(point => ({
+                            ...point,
+                            properties: {
+                                ...point.properties,
+                                'animation-timestamp': point.id === hoveredPointId ? animationTimestamp : 0
+                            }
+                        }))
+                    });
+                    requestAnimationFrame(animate);
+                }
+            }
+
+            // Update hover handlers
+            map.on('mouseenter', 'points-base', (e) => {
+                if (e.features.length > 0) {
+                    map.getCanvas().style.cursor = 'pointer';
+                    hoveredPointId = e.features[0].id;
+                    animationDirection = 1; // Set to grow
+                    animationTimestamp = 0; // Reset timestamp
+                    animate(); // Start animation
+                }
+            });
+
+            map.on('mouseleave', 'points-base', () => {
+                map.getCanvas().style.cursor = '';
+                animationDirection = -1; // Set to shrink
+                animate(); // Continue animation for shrinking
+            });
+
+            map.on("mouseenter", "points", (e) => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on("mouseleave", "points", (e) => {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on("click", "points", (e) => {
+
+                const row = e.features[0].properties;
+                const name = row['First Name'] + ' ' + row['Last Name'];
+                const popup = new mapboxgl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(`
+                        <h3>${name}</h3>
+                        <p>${row['City']}</p>
+                    `)
+                    .addTo(map);
+            });
+
+
+        });
+
+    </script>
+</body>
+
+</html>
