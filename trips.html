@@ -121,14 +121,14 @@
 <body>
 
     <div class="main">
-        <div id="info"></div>
         <div id="map"></div>
     </div>
 
     <script>
 
+        const id = new URLSearchParams(window.location.search).get('id');
+
         let bounds;
-        const infoDiv = document.getElementById('info');
 
         const appData = {
             points: [],
@@ -139,21 +139,35 @@
             container: 'map',
             // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
             style: 'mapbox://styles/mapbox/light-v11',
-            zoom: 2,
-            center: { lng: -0.02665959675479712, lat: 2 },
+            zoom: 5.6,
+            center: { lng: 11.925495270350808, lat: 42.631615532606304 },
             projection: 'mercator'
         });
 
-        window.addEventListener('load', () => {
-            const searchBox = new MapboxSearchBox();
-            searchBox.accessToken = mapboxgl.accessToken;
-            searchBox.marker = true;
-            searchBox.mapboxgl = mapboxgl;
-            map.addControl(searchBox);
-        });
+        // window.addEventListener('load', () => {
+        //     const searchBox = new MapboxSearchBox();
+        //     searchBox.accessToken = mapboxgl.accessToken;
+        //     searchBox.marker = true;
+        //     searchBox.mapboxgl = mapboxgl;
+        //     map.addControl(searchBox);
+        // });
 
 
         map.on('load', () => {
+
+            const styleLayers = map.getStyle().layers;
+            styleLayers.forEach(layer => {
+                // if (layer.id.includes('admin') && layer.id !== 'admin-0-boundaries' && layer.id !== 'country-label') {
+                //     map.setLayoutProperty(layer.id, 'visibility', 'none');
+                // }
+                map.setLayoutProperty('admin-1-boundary', 'visibility', 'none');
+                map.getStyle().layers
+                    .filter(i => i.id.includes("label") && !i.id.includes("country-label"))
+                    .map(d => {
+                        map.setLayoutProperty(d.id, 'visibility', 'none');
+                    })
+
+            });
 
             d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRtswzG8lnl6KTXTPzM_03rP4tQsNTvdMHgSjoEgVC_t7MJIy0hEewdGnU2m9b0XwPkUPSvbyfQjMcf/pub?output=csv")
                 .then(data => {
@@ -162,7 +176,9 @@
                     bounds = new mapboxgl.LngLatBounds();
 
                     const points = data
+
                         .filter(row => row["COORDINATES"] !== "")
+                        .filter(row => id ? row["ITINERARY_ID"] === id : true)
                         .map((row, index) => {
 
                             console.log('row', row);
@@ -188,7 +204,7 @@
                             }
                         });
 
-                    map.fitBounds(bounds, { padding: 150 });
+                    //map.fitBounds(bounds, { padding: 150 });
 
 
                     console.log(points);
@@ -207,26 +223,13 @@
                 }
             });
 
-            // Remove the existing points layer and replace with these two layers:
             map.addLayer({
                 id: 'points-base',
                 type: 'circle',
                 source: 'points',
                 paint: {
-                    'circle-radius': 5,
-                    'circle-color': '#000',
-                    'circle-stroke-width': 1,
-                    'circle-stroke-color': 'black'
-                }
-            });
-
-            map.addLayer({
-                id: 'points-base',
-                type: 'circle',
-                source: 'points',
-                paint: {
-                    'circle-radius': 5,
-                    'circle-color': '#87CEEB',
+                    'circle-radius': 6,
+                    'circle-color': 'black',
                 }
             });
 
