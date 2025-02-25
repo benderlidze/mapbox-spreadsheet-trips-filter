@@ -7,14 +7,9 @@
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
     <link href="https://api.mapbox.com/mapbox-assembly/v1.3.0/assembly.min.css" rel="stylesheet">
     <script id="search-js" defer="" src="https://api.mapbox.com/search-js/v1.0.0/web.js"></script>
-
-
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-
     <script src="https://npmcdn.com/@turf/turf/turf.min.js"></script>
-
-
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         body {
@@ -97,7 +92,6 @@
             color: #1976d2;
         }
 
-        /* New style for search control */
         .mapboxgl-ctrl.mapboxgl-ctrl-group {
             width: 100% !important;
             padding: 5px !important;
@@ -119,17 +113,13 @@
 </head>
 
 <body>
-
     <div class="main">
         <div id="map"></div>
     </div>
 
     <script>
-
         const id = new URLSearchParams(window.location.search).get('id');
-
         let bounds;
-
         const appData = {
             points: [],
         };
@@ -137,39 +127,23 @@
         mapboxgl.accessToken = 'pk.eyJ1Ijoic2VyaHV6IiwiYSI6ImNseXpvc3RlczJpbnIya3FscDU2aHc5d3EifQ.FHtPjde_lqensSHZxqthgw';
         const map = new mapboxgl.Map({
             container: 'map',
-            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
             style: 'mapbox://styles/mapbox/light-v11',
             zoom: 5.6,
             center: { lng: 11.925495270350808, lat: 42.631615532606304 },
             projection: 'mercator'
         });
 
-        // window.addEventListener('load', () => {
-        //     const searchBox = new MapboxSearchBox();
-        //     searchBox.accessToken = mapboxgl.accessToken;
-        //     searchBox.marker = true;
-        //     searchBox.mapboxgl = mapboxgl;
-        //     map.addControl(searchBox);
-        // });
-
-
         map.on('load', () => {
-
             const styleLayers = map.getStyle().layers;
             styleLayers.forEach(layer => {
-                // if (layer.id.includes('admin') && layer.id !== 'admin-0-boundaries' && layer.id !== 'country-label') {
-                //     map.setLayoutProperty(layer.id, 'visibility', 'none');
-                // }
                 map.setLayoutProperty('admin-1-boundary', 'visibility', 'none');
                 map.getStyle().layers
                     .filter(i => i.id.includes("label") && !i.id.includes("country-label"))
                     .map(d => {
                         map.setLayoutProperty(d.id, 'visibility', 'none');
                     })
-
             });
 
-            // Add new source for lines
             map.addSource('lines', {
                 type: 'geojson',
                 data: {
@@ -181,28 +155,20 @@
             d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRtswzG8lnl6KTXTPzM_03rP4tQsNTvdMHgSjoEgVC_t7MJIy0hEewdGnU2m9b0XwPkUPSvbyfQjMcf/pub?output=csv")
                 .then(data => {
                     console.log(data);
-
                     bounds = new mapboxgl.LngLatBounds();
-
                     const points = data
-
                         .filter(row => row["COORDINATES"] !== "")
                         .filter(row => id ? row["ITINERARY_ID"] === id : true)
                         .map((row, index) => {
-
                             console.log('row', row);
                             console.log('row', row["COORDINATES"]);
                             console.log('row', row["COORDINATES"].split(',').map(parseFloat));
-
                             const [lat, lon] = row["COORDINATES"].split(',').map(parseFloat);
-
                             console.log('lat, lon', lat, lon);
-
                             bounds.extend([lon, lat]);
-
                             return {
                                 type: 'Feature',
-                                id: index,  // Add an ID to each feature
+                                id: index,
                                 geometry: {
                                     type: 'Point',
                                     coordinates: [lon, lat]
@@ -213,10 +179,8 @@
                             }
                         });
 
-                    // Sort points by STEP_NUMBER
                     points.sort((a, b) => parseInt(a.properties.STEP_NUMBER) - parseInt(b.properties.STEP_NUMBER));
 
-                    // Create line features
                     const lineFeatures = [];
                     for (let i = 0; i < points.length - 1; i++) {
                         lineFeatures.push({
@@ -237,7 +201,6 @@
 
                     map.fitBounds(bounds, { padding: 150 });
 
-                    // Update both sources
                     map.getSource('lines').setData({
                         type: 'FeatureCollection',
                         features: lineFeatures
@@ -274,12 +237,10 @@
                 }
             });
 
-            // Load the custom icon image
             map.loadImage('icon.png', (error, image) => {
                 if (error) throw error;
                 map.addImage('custom-marker', image);
             });
-
 
             map.addLayer({
                 id: 'points-base',
@@ -291,23 +252,18 @@
                 }
             });
 
-            // Replace the points-base and points-animated layers with this:
             map.addLayer({
                 id: 'points-icons',
                 type: 'symbol',
                 source: 'points',
                 layout: {
                     'icon-image': 'custom-marker',
-                    'icon-size': 0.3, // Adjust this value to resize the icon
+                    'icon-size': 0.3,
                     'icon-allow-overlap': true,
                     'icon-ignore-placement': true
                 }
             });
 
-
-
-
-            // Update point labels layer (if needed)
             map.addLayer({
                 id: 'point-labels',
                 type: 'symbol',
@@ -315,7 +271,7 @@
                 layout: {
                     'text-field': ['get', 'LOCATION'],
                     'text-anchor': 'left',
-                    'text-offset': [1.5, 0], // Adjusted offset to account for icon
+                    'text-offset': [1.5, 0],
                     'text-size': 14
                 },
                 paint: {
@@ -325,7 +281,6 @@
                 }
             });
 
-            // Update hover handlers to use new layer id
             map.on('mouseenter', 'points-icons', (e) => {
                 map.getCanvas().style.cursor = 'pointer';
             });
@@ -334,7 +289,6 @@
                 map.getCanvas().style.cursor = '';
             });
 
-            // Update click handler
             map.on('click', 'points-icons', (e) => {
                 const row = e.features[0].properties;
                 const name = row['First Name'] + ' ' + row['Last Name'];
@@ -346,9 +300,7 @@
                     `)
                     .addTo(map);
             });
-
         });
-
     </script>
 </body>
 
