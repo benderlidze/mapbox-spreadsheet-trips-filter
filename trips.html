@@ -268,63 +268,55 @@
                     'line-cap': 'round'
                 },
                 paint: {
-                    'line-color': '#c2022a',
+                    'line-color': '#9f853e',
                     'line-width': 2,
                     'line-opacity': 0.7
                 }
             });
+
+            // Load the custom icon image
+            map.loadImage('icon.png', (error, image) => {
+                if (error) throw error;
+                map.addImage('custom-marker', image);
+            });
+
 
             map.addLayer({
                 id: 'points-base',
                 type: 'circle',
                 source: 'points',
                 paint: {
-                    'circle-radius': 6,
-                    'circle-color': 'black',
+                    'circle-radius': 12,
+                    'circle-color': 'white',
                 }
             });
 
+            // Replace the points-base and points-animated layers with this:
             map.addLayer({
-                id: 'points-animated',
-                type: 'circle',
+                id: 'points-icons',
+                type: 'symbol',
                 source: 'points',
-                paint: {
-                    'circle-radius': [
-                        'interpolate',
-                        ['exponential', 1],
-                        ['number', ['get', 'animation-timestamp']],
-                        0, 5,
-                        1, 15
-                    ],
-                    'circle-stroke-width': [
-                        'interpolate',
-                        ['exponential', 1],
-                        ['number', ['get', 'animation-timestamp']],
-                        0, 0,
-                        1, 3
-                    ],
-                    'circle-stroke-color': '#87CEEB', // changed to sky blue
-                    'circle-color': 'transparent',
-                    'circle-opacity': [
-                        'interpolate',
-                        ['exponential', 1],
-                        ['number', ['get', 'animation-timestamp']],
-                        0, 0.8,
-                        1, 0
-                    ]
+                layout: {
+                    'icon-image': 'custom-marker',
+                    'icon-size': 0.3, // Adjust this value to resize the icon
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true
                 }
             });
 
-            // Add new text layer for location labels
+
+
+
+            // Update point labels layer (if needed)
             map.addLayer({
                 id: 'point-labels',
                 type: 'symbol',
                 source: 'points',
                 layout: {
                     'text-field': ['get', 'LOCATION'],
-                    'text-anchor': 'left',  // Change from 'bottom' to 'left'
-                    'text-offset': [0.8, 0], // Change offset to move text right [x, y]
-                    'text-size': 12
+                    'text-anchor': 'left',
+                    'text-offset': [1.5, 0], // Adjusted offset to account for icon
+                    'text-size': 14
                 },
                 paint: {
                     'text-color': '#000',
@@ -333,66 +325,17 @@
                 }
             });
 
-            // Replace the animation logic with this:
-            let animationTimestamp = 0;
-            let hoveredPointId = null;
-            let animationDirection = 1; // 1 for growing, -1 for shrinking
-
-            function animate() {
-                if (hoveredPointId !== null) {
-                    // Growing
-                    if (animationDirection === 1) {
-                        animationTimestamp = Math.min(1, animationTimestamp + 0.05);
-                    }
-                    // Shrinking
-                    else {
-                        animationTimestamp = Math.max(0, animationTimestamp - 0.05);
-                        if (animationTimestamp === 0) {
-                            hoveredPointId = null;
-                            return; // Stop animation when fully shrunk
-                        }
-                    }
-
-                    map.getSource('points').setData({
-                        type: 'FeatureCollection',
-                        features: appData.points.map(point => ({
-                            ...point,
-                            properties: {
-                                ...point.properties,
-                                'animation-timestamp': point.id === hoveredPointId ? animationTimestamp : 0
-                            }
-                        }))
-                    });
-                    requestAnimationFrame(animate);
-                }
-            }
-
-            // Update hover handlers
-            map.on('mouseenter', 'points-base', (e) => {
-                if (e.features.length > 0) {
-                    map.getCanvas().style.cursor = 'pointer';
-                    hoveredPointId = e.features[0].id;
-                    animationDirection = 1; // Set to grow
-                    animationTimestamp = 0; // Reset timestamp
-                    animate(); // Start animation
-                }
-            });
-
-            map.on('mouseleave', 'points-base', () => {
-                map.getCanvas().style.cursor = '';
-                animationDirection = -1; // Set to shrink
-                animate(); // Continue animation for shrinking
-            });
-
-            map.on("mouseenter", "points", (e) => {
+            // Update hover handlers to use new layer id
+            map.on('mouseenter', 'points-icons', (e) => {
                 map.getCanvas().style.cursor = 'pointer';
             });
-            map.on("mouseleave", "points", (e) => {
+
+            map.on('mouseleave', 'points-icons', () => {
                 map.getCanvas().style.cursor = '';
             });
 
-            map.on("click", "points", (e) => {
-
+            // Update click handler
+            map.on('click', 'points-icons', (e) => {
                 const row = e.features[0].properties;
                 const name = row['First Name'] + ' ' + row['Last Name'];
                 const popup = new mapboxgl.Popup()
@@ -403,7 +346,6 @@
                     `)
                     .addTo(map);
             });
-
 
         });
 
