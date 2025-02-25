@@ -169,6 +169,15 @@
 
             });
 
+            // Add new source for lines
+            map.addSource('lines', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
             d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRtswzG8lnl6KTXTPzM_03rP4tQsNTvdMHgSjoEgVC_t7MJIy0hEewdGnU2m9b0XwPkUPSvbyfQjMcf/pub?output=csv")
                 .then(data => {
                     console.log(data);
@@ -204,8 +213,35 @@
                             }
                         });
 
+                    // Sort points by STEP_NUMBER
+                    points.sort((a, b) => parseInt(a.properties.STEP_NUMBER) - parseInt(b.properties.STEP_NUMBER));
+
+                    // Create line features
+                    const lineFeatures = [];
+                    for (let i = 0; i < points.length - 1; i++) {
+                        lineFeatures.push({
+                            type: 'Feature',
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: [
+                                    points[i].geometry.coordinates,
+                                    points[i + 1].geometry.coordinates
+                                ]
+                            },
+                            properties: {
+                                fromStep: points[i].properties.STEP_NUMBER,
+                                toStep: points[i + 1].properties.STEP_NUMBER
+                            }
+                        });
+                    }
+
                     map.fitBounds(bounds, { padding: 150 });
 
+                    // Update both sources
+                    map.getSource('lines').setData({
+                        type: 'FeatureCollection',
+                        features: lineFeatures
+                    });
 
                     console.log(points);
                     appData.points = points;
@@ -220,6 +256,21 @@
                 data: {
                     type: 'FeatureCollection',
                     features: []
+                }
+            });
+
+            map.addLayer({
+                id: 'route-lines',
+                type: 'line',
+                source: 'lines',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#c2022a',
+                    'line-width': 2,
+                    'line-opacity': 0.7
                 }
             });
 
@@ -261,6 +312,24 @@
                         0, 0.8,
                         1, 0
                     ]
+                }
+            });
+
+            // Add new text layer for location labels
+            map.addLayer({
+                id: 'point-labels',
+                type: 'symbol',
+                source: 'points',
+                layout: {
+                    'text-field': ['get', 'LOCATION'],
+                    'text-anchor': 'left',  // Change from 'bottom' to 'left'
+                    'text-offset': [0.8, 0], // Change offset to move text right [x, y]
+                    'text-size': 12
+                },
+                paint: {
+                    'text-color': '#000',
+                    'text-halo-color': '#fff',
+                    'text-halo-width': 1
                 }
             });
 
