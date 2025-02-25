@@ -174,7 +174,8 @@
                                     coordinates: [lon, lat]
                                 },
                                 properties: {
-                                    ...row
+                                    ...row,
+                                    LOCATION: row['STEP_NUMBER'] + '. ' + row["LOCATION"],
                                 }
                             }
                         });
