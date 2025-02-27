@@ -115,6 +115,105 @@
             margin-top: 20px;
             width: 100%;
         }
+
+        /* Filter styles */
+        .filters-container {
+            padding: 5px;
+
+        }
+
+        /* New styles for filters over map */
+        #map-container {
+            position: relative;
+            flex: 1;
+        }
+
+        #filters-overlay {
+            position: absolute;
+            /* top: 10px; */
+            left: 10px;
+            /* right: 10px; */
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .filters-title {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .filter-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .filter-checkbox {
+            display: none;
+        }
+
+        .filter-label {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #555;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-checkbox:checked+.filter-label {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .filter-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .filter-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 20px;
+            height: 20px;
+            margin-left: 8px;
+            padding: 0 6px;
+            font-size: 12px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .filter-checkbox:checked+.filter-label .filter-count {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .clear-filters {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #007bff;
+            background: none;
+            border: none;
+            padding: 5px;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .clear-filters:hover {
+            color: #0056b3;
+        }
     </style>
 </head>
 
@@ -122,13 +221,17 @@
 
     <div class="main">
         <div id="info"></div>
-        <div id="map"></div>
+        <div id="map-container">
+            <div id="filters-overlay"></div>
+            <div id="map"></div>
+        </div>
     </div>
 
     <script>
 
         let bounds;
         const infoDiv = document.getElementById('info');
+        const filtersOverlay = document.getElementById('filters-overlay');
 
         const appData = {
             points: [],
@@ -166,6 +269,7 @@
 
                     bounds = new mapboxgl.LngLatBounds();
                     const filters = new Set();
+                    const filterCounts = {};
 
                     const points = items
                         .filter(row => row.Addresses[0]?.Locality)
@@ -177,7 +281,10 @@
                             const [lat, lon] = row.Addresses[0]?.Locality.split(',');
                             const addr = `${row.Addresses[0]?.City || ""}  ${row.Addresses[0]?.Addressline || ""} ${row.Addresses[0]?.Addressnumber || ""}`;
 
-                            filters.add(row['Activitytype']);
+                            // Add to filters and count
+                            const activityType = row['Activitytype'] || "Unknown";
+                            filters.add(activityType);
+                            filterCounts[activityType] = (filterCounts[activityType] || 0) + 1;
 
                             bounds.extend([lon, lat]);
                             return {
@@ -189,6 +296,7 @@
                                 properties: {
                                     ...row,
                                     address: addr,
+                                    filter: activityType
                                 }
                             }
                         });
@@ -197,12 +305,22 @@
 
                     console.log(points);
                     console.log(filters);
-                    
+
                     appData.points = points;
+                    appData.filters = Array.from(filters);
+                    appData.filterCounts = filterCounts;
+                    appData.activeFilters = new Set(appData.filters); // Start with all filters active
+
+                    // Create filter checkboxes
+                    createFilterCheckboxes();
+
                     map.getSource('points').setData({
                         type: 'FeatureCollection',
                         features: appData.points
                     });
+
+                    // Initial filter of map by bounds
+                    filterByBounds(map.getBounds());
                 });
 
 
@@ -254,6 +372,87 @@
                 filterByBounds(map.getBounds())
             });
 
+            function createFilterCheckboxes() {
+                // Reset filters container
+                filtersOverlay.innerHTML = '';
+
+                // Create filters container
+                const filtersContainer = document.createElement('div');
+                filtersContainer.className = 'filters-container';
+
+                const filtersTitle = document.createElement('h3');
+                filtersTitle.className = 'filters-title';
+                // filtersTitle.textContent = 'Filter by activity type';
+                filtersContainer.appendChild(filtersTitle);
+
+                const filterOptions = document.createElement('div');
+                filterOptions.className = 'filter-options';
+                filtersContainer.appendChild(filterOptions);
+
+                const clearButton = document.createElement('button');
+                clearButton.className = 'clear-filters';
+                clearButton.textContent = 'Clear filters';
+                clearButton.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-checkbox').forEach(cb => {
+                        cb.checked = true;
+                    });
+                    appData.activeFilters = new Set(appData.filters);
+                    applyFilters();
+                });
+                filtersContainer.appendChild(clearButton);
+
+                // Add the filters container to the overlay
+                filtersOverlay.appendChild(filtersContainer);
+
+                // Create a checkbox for each filter
+                appData.filters.forEach(filter => {
+                    const count = appData.filterCounts[filter] || 0;
+
+                    const id = `filter-${filter.replace(/\s+/g, '-').toLowerCase()}`;
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = id;
+                    checkbox.className = 'filter-checkbox';
+                    checkbox.checked = true; // Default to checked
+                    checkbox.value = filter;
+
+                    const label = document.createElement('label');
+                    label.htmlFor = id;
+                    label.className = 'filter-label';
+                    label.textContent = filter;
+
+                    const countSpan = document.createElement('span');
+                    countSpan.className = 'filter-count';
+                    countSpan.textContent = count;
+                    label.appendChild(countSpan);
+
+                    checkbox.addEventListener('change', () => {
+                        if (checkbox.checked) {
+                            appData.activeFilters.add(filter);
+                        } else {
+                            appData.activeFilters.delete(filter);
+                        }
+                        applyFilters();
+                    });
+
+                    filterOptions.appendChild(checkbox);
+                    filterOptions.appendChild(label);
+                });
+            }
+
+            function applyFilters() {
+                // Update map
+                map.getSource('points').setData({
+                    type: 'FeatureCollection',
+                    features: appData.points.filter(point =>
+                        appData.activeFilters.has(point.properties.filter || "Unknown")
+                    )
+                });
+
+                // Update info panel
+                filterByBounds(map.getBounds());
+            }
+
             function filterByBounds(bounds) {
                 // Create a polygon from the current bounds
                 const bbox = [
@@ -265,7 +464,8 @@
                 const bboxPolygon = turf.bboxPolygon(bbox);
 
                 const visiblePoints = appData.points.filter(point => {
-                    return turf.booleanPointInPolygon(point, bboxPolygon);
+                    return turf.booleanPointInPolygon(point, bboxPolygon) &&
+                        appData.activeFilters.has(point.properties.filter || "Unknown");
                 });
 
                 console.log('visiblePoints.length', visiblePoints.length);
@@ -273,15 +473,12 @@
                 if (visiblePoints.length > 0) {
                     generateItems(visiblePoints);
                 } else {
-
                     infoDiv.innerHTML = '';
                     infoDiv.appendChild(resetView());
                 }
-
             }
 
             function resetView() {
-
                 const div = document.createElement('div');
 
                 const span = document.createElement('span');
@@ -298,15 +495,12 @@
                 div.appendChild(button);
 
                 return div;
-
             }
 
             function generateItems(itemsArray) {
-
                 infoDiv.innerHTML = '';
 
                 itemsArray.forEach((item) => {
-
                     const props = item.properties;
 
                     const name = props['Name'];
@@ -339,9 +533,7 @@
                     infoDiv.appendChild(div);
                 });
             }
-
         });
-
     </script>
 
 </body>
