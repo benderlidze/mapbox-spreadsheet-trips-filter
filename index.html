@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Style circles with a data-driven property</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-assembly/v1.3.0/assembly.min.css" rel="stylesheet">
+    <script id="search-js" defer="" src="https://api.mapbox.com/search-js/v1.0.0/web.js"></script>
+
+
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+    <script src="https://npmcdn.com/@turf/turf/turf.min.js"></script>
+
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            flex: 1;
+            height: 100vh;
+        }
+
+        .mapboxgl-popup.mapboxgl-popup-anchor-top {
+            max-width: 400px !important;
+        }
+
+        .main {
+            display: flex;
+            flex-direction: row;
+            height: 100vh;
+        }
+
+        #info {
+            display: flex;
+            flex-direction: column;
+            width: 30%;
+            padding: 20px;
+            background: white;
+            overflow-y: auto;
+            box-shadow: 0 0px 15px rgba(0, 0, 0, 0.5);
+            z-index: 1;
+        }
+
+        .location-item {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 0px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow-x: clip;
+        }
+
+        .location-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .location-name {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #333;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .location-detail {
+            margin: 4px 0;
+            color: #666;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            word-break: break-all;
+        }
+
+        .location-detail svg {
+            margin-right: 8px;
+            width: 16px;
+            height: 16px;
+        }
+
+        .priority-tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        /* New style for search control */
+        .mapboxgl-ctrl.mapboxgl-ctrl-group {
+            width: 100% !important;
+            padding: 5px !important;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="main">
+        <div id="info"></div>
+        <div id="map"></div>
+    </div>
+
+    <script>
+
+        let bounds;
+        const infoDiv = document.getElementById('info');
+
+        const appData = {
+            points: [],
+        };
+
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic2VyaHV6IiwiYSI6ImNseXpvc3RlczJpbnIya3FscDU2aHc5d3EifQ.FHtPjde_lqensSHZxqthgw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
+            style: 'mapbox://styles/mapbox/light-v11',
+            zoom: 2,
+            center: { lng: -0.02665959675479712, lat: 2 },
+            projection: 'mercator'
+        });
+
+        window.addEventListener('load', () => {
+            const searchBox = new MapboxSearchBox();
+            searchBox.accessToken = mapboxgl.accessToken;
+            searchBox.marker = true;
+            searchBox.mapboxgl = mapboxgl;
+            map.addControl(searchBox);
+        });
+
+
+        map.on('load', () => {
+
+            //fetch("https://proxy.corsfix.com/?https://api.xenion.it/getmasterdata?callername=mapbox34534534556666423356&user=dn6b125b7fcb8b&key=2011309c24f3a6f61f18c69c1e1922d6329a6d50cf4d6fdc18&propertycode=0")
+            fetch("data.json")
+                .then(response => response.json())
+                .then(data => {
+
+                    const items = data.Data
+
+                    console.log('items', items);
+
+                    bounds = new mapboxgl.LngLatBounds();
+                    const filters = new Set();
+
+                    const points = items
+                        .filter(row => row.Addresses[0]?.Locality)
+                        .filter(row => {
+                            const latLon = row.Addresses[0]?.Locality.split(',');
+                            return latLon.length === 2;
+                        })
+                        .map(row => {
+                            const [lat, lon] = row.Addresses[0]?.Locality.split(',');
+                            const addr = `${row.Addresses[0]?.City || ""}  ${row.Addresses[0]?.Addressline || ""} ${row.Addresses[0]?.Addressnumber || ""}`;
+
+                            filters.add(row['Activitytype']);
+
+                            bounds.extend([lon, lat]);
+                            return {
+                                type: 'Feature',
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: [lon, lat]
+                                },
+                                properties: {
+                                    ...row,
+                                    address: addr,
+                                }
+                            }
+                        });
+
+                    map.fitBounds(bounds, { padding: 150 });
+
+                    console.log(points);
+                    console.log(filters);
+                    
+                    appData.points = points;
+                    map.getSource('points').setData({
+                        type: 'FeatureCollection',
+                        features: appData.points
+                    });
+                });
+
+
+
+            map.addSource('points', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            map.addLayer({
+                id: 'points',
+                source: 'points',
+                type: 'circle',
+                paint: {
+                    'circle-radius': 5,
+                    'circle-color': 'red',
+                    'circle-stroke-width': 1,
+                    'circle-stroke-color': 'white'
+                }
+            });
+
+
+            map.on("mouseenter", "points", (e) => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+            map.on("mouseleave", "points", (e) => {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on("click", "points", (e) => {
+
+                const row = e.features[0].properties;
+
+                const name = row['First Name'] + ' ' + row['Last Name'];
+
+                const popup = new mapboxgl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(`
+                        <h3>${name}</h3>
+                        <p>${row['City']}</p>
+                    `)
+                    .addTo(map);
+            });
+
+            map.on("moveend", () => {
+                filterByBounds(map.getBounds())
+            });
+
+            function filterByBounds(bounds) {
+                // Create a polygon from the current bounds
+                const bbox = [
+                    bounds.getWest(),
+                    bounds.getSouth(),
+                    bounds.getEast(),
+                    bounds.getNorth()
+                ];
+                const bboxPolygon = turf.bboxPolygon(bbox);
+
+                const visiblePoints = appData.points.filter(point => {
+                    return turf.booleanPointInPolygon(point, bboxPolygon);
+                });
+
+                console.log('visiblePoints.length', visiblePoints.length);
+
+                if (visiblePoints.length > 0) {
+                    generateItems(visiblePoints);
+                } else {
+
+                    infoDiv.innerHTML = '';
+                    infoDiv.appendChild(resetView());
+                }
+
+            }
+
+            function resetView() {
+
+                const div = document.createElement('div');
+
+                const span = document.createElement('span');
+                span.innerHTML = 'There are no items in this view.';
+
+                const button = document.createElement('button');
+                button.className = 'btn';
+                button.innerHTML = 'Reset View';
+                button.onclick = () => {
+                    map.fitBounds(bounds, { padding: 50 });
+                };
+
+                div.appendChild(span);
+                div.appendChild(button);
+
+                return div;
+
+            }
+
+            function generateItems(itemsArray) {
+
+                infoDiv.innerHTML = '';
+
+                itemsArray.forEach((item) => {
+
+                    const props = item.properties;
+
+                    const name = props['Name'];
+                    const email = props['Mail'];
+                    const address = props['address'];
+
+                    const div = document.createElement('div');
+                    div.className = 'location-item';
+                    div.innerHTML = `
+                        <h3 class="location-name">${name}</h3>
+                        <div class="location-detail">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                                <circle cx="12" cy="10" r="3" />
+                            </svg>
+                            ${address}
+                        </div>
+                        <div class="location-detail">
+                            <span class="priority-tag">${email}</span>
+                        </div>
+                    `;
+
+                    div.addEventListener('click', () => {
+                        map.flyTo({
+                            center: item.geometry.coordinates,
+                            zoom: 12
+                        });
+                    });
+
+                    infoDiv.appendChild(div);
+                });
+            }
+
+        });
+
+    </script>
+
+</body>
+
+</html>
