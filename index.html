@@ -215,6 +215,28 @@
         .clear-filters:hover {
             color: #0056b3;
         }
+
+        /* Adding color indicator for filter labels */
+        .filter-color-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .filter-label {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 6px;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #555;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
     </style>
 </head>
 
@@ -236,6 +258,7 @@
 
         const appData = {
             points: [],
+            filterColors: {} // Add this to store color mappings
         };
 
         mapboxgl.accessToken = 'pk.eyJ1Ijoic2VyaHV6IiwiYSI6ImNseXpvc3RlczJpbnIya3FscDU2aHc5d3EifQ.FHtPjde_lqensSHZxqthgw';
@@ -309,6 +332,7 @@
                     appData.filters = Array.from(filters);
                     appData.filterCounts = filterCounts;
                     appData.activeFilters = new Set(appData.filters); // Start with all filters active
+                    appData.filterColors = getFilterColors(appData.filters); // Generate colors for filters
 
                     // Create filter checkboxes
                     createFilterCheckboxes();
@@ -321,8 +345,6 @@
                     // Initial filter of map by bounds
                     filterByBounds(map.getBounds());
                 });
-
-
 
             map.addSource('points', {
                 type: 'geojson',
@@ -338,12 +360,37 @@
                 type: 'circle',
                 paint: {
                     'circle-radius': 5,
-                    'circle-color': 'red',
+                    // Use a data-driven expression to set color based on filter type
+                    'circle-color': [
+                        'match',
+                        ['get', 'filter'],
+                        // This will be populated dynamically once filters are known
+                        'default-fallback', 'red', // Fallback color if no match
+                        'red' // Default fallback if the case method fails
+                    ],
                     'circle-stroke-width': 1,
                     'circle-stroke-color': 'white'
                 }
             });
 
+            // Function to generate color for filters
+            function getFilterColors(filters) {
+                // Predefined color palette for better visual distinction
+                const colorPalette = [
+                    '#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231',
+                    '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4',
+                    '#469990', '#dcbeff', '#9A6324', '#800000', '#aaffc3',
+                    '#808000', '#ffd8b1', '#000075', '#a9a9a9', '#000000'
+                ];
+
+                const colorMap = {};
+                filters.forEach((filter, index) => {
+                    // Use modulo to cycle through colors if there are more filters than colors
+                    colorMap[filter] = colorPalette[index % colorPalette.length];
+                });
+
+                return colorMap;
+            }
 
             map.on("mouseenter", "points", (e) => {
                 map.getCanvas().style.cursor = 'pointer';
@@ -403,9 +450,10 @@
                 // Add the filters container to the overlay
                 filtersOverlay.appendChild(filtersContainer);
 
-                // Create a checkbox for each filter
+                // Create a checkbox for each filter with color indicator
                 appData.filters.forEach(filter => {
                     const count = appData.filterCounts[filter] || 0;
+                    const color = appData.filterColors[filter];
 
                     const id = `filter-${filter.replace(/\s+/g, '-').toLowerCase()}`;
                     const checkbox = document.createElement('input');
@@ -418,7 +466,16 @@
                     const label = document.createElement('label');
                     label.htmlFor = id;
                     label.className = 'filter-label';
-                    label.textContent = filter;
+
+                    // Add color indicator
+                    const colorIndicator = document.createElement('span');
+                    colorIndicator.className = 'filter-color-indicator';
+                    colorIndicator.style.backgroundColor = color;
+                    label.appendChild(colorIndicator);
+
+                    const textSpan = document.createElement('span');
+                    textSpan.textContent = filter;
+                    label.appendChild(textSpan);
 
                     const countSpan = document.createElement('span');
                     countSpan.className = 'filter-count';
@@ -437,6 +494,24 @@
                     filterOptions.appendChild(checkbox);
                     filterOptions.appendChild(label);
                 });
+
+                // Update map layer with color mapping
+                updateMapLayerColors();
+            }
+
+            function updateMapLayerColors() {
+                const matchExpression = ['match', ['get', 'filter']];
+
+                // Add each filter color to the match expression
+                Object.entries(appData.filterColors).forEach(([filter, color]) => {
+                    matchExpression.push(filter, color);
+                });
+
+                // Add a default color as the last argument
+                matchExpression.push('red');
+
+                // Apply the expression to the layer
+                map.setPaintProperty('points', 'circle-color', matchExpression);
             }
 
             function applyFilters() {
@@ -466,8 +541,6 @@
                     return turf.booleanPointInPolygon(point, bboxPolygon) &&
                         appData.activeFilters.has(point.properties.filter || "Unknown");
                 });
-
-                console.log('visiblePoints.length', visiblePoints.length);
 
                 if (visiblePoints.length > 0) {
                     generateItems(visiblePoints);
