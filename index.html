@@ -67,10 +67,9 @@
 
         .location-name {
             margin: 0 0 8px 0;
-            font-size: 18px;
+            font-size: 16px;
             color: #333;
             font-weight: 600;
-            word-break: break-all;
         }
 
         .location-detail {
@@ -578,11 +577,16 @@
                     const name = props['Name'];
                     const email = props['Mail'];
                     const address = props['address'];
+                    const filterType = props['filter'] || 'Unknown';
+                    const color = appData.filterColors[filterType] || 'red';
 
                     const div = document.createElement('div');
                     div.className = 'location-item';
                     div.innerHTML = `
-                        <h3 class="location-name">${name}</h3>
+                        <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                            <div style="display: inline-block; width: 12px; height: 12px; min-width: 12px; min-height: 12px; border-radius: 50%; background-color: ${color}; margin-right: 8px; overflow: hidden; box-sizing: border-box; aspect-ratio: 1/1;"></div>
+                            <h3 class="location-name" style="margin: 0;">${name}</h3>
+                        </div>
                         <div class="location-detail">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
@@ -592,6 +596,9 @@
                         </div>
                         <div class="location-detail">
                             <span class="priority-tag">${email}</span>
+                        </div>
+                        <div class="location-detail">
+                            <span>${filterType}</span>
                         </div>
                     `;
 
