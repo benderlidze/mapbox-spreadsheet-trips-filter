@@ -248,6 +248,10 @@
             <div id="map"></div>
         </div>
     </div>
+    <div id="filters-overlay"></div>
+    <div id="map"></div>
+    </div>
+    </div>
 
     <script>
 
@@ -399,17 +403,65 @@
             });
 
             map.on("click", "points", (e) => {
-
                 const row = e.features[0].properties;
 
-                const name = row['First Name'] + ' ' + row['Last Name'];
+                let popupContent = `<div style="padding: 10px;">
+                    <h3 style="margin: 0 0 10px 0; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 8px; font-weight: bold; font-size: 20px;">
+                        ${row['Name'] || ''} ${row['Surname'] || ''}
+                    </h3>
+                `;
+                // Only add fields that have values
+                if (row['Activitytype']) {
+                    popupContent += `<p style="margin: 5px 0; display: flex; align-items: center;">
+                        <span style="min-width: 24px; color: #007bff; margin-right: 5px;">📋</span>
+                        <span><strong>Activity:</strong> ${row['Activitytype']}</span>
+                    </p>`;
+                }
 
-                const popup = new mapboxgl.Popup()
+                if (row['address']) {
+                    popupContent += `<p style="margin: 5px 0; display: flex; align-items: center;">
+                        <span style="min-width: 24px; color: #007bff; margin-right: 5px;">📍</span>
+                        <span>${row['address']}</span>
+                    </p>`;
+                }
+
+                if (row['Telephone']) {
+                    popupContent += `<p style="margin: 5px 0; display: flex; align-items: center;">
+                        <span style="min-width: 24px; color: #007bff; margin-right: 5px;">☎️</span>
+                        <span>${row['Telephone']}</span>
+                    </p>`;
+                }
+
+                if (row['Mobile']) {
+                    popupContent += `<p style="margin: 5px 0; display: flex; align-items: center;">
+                        <span style="min-width: 24px; color: #007bff; margin-right: 5px;">📱</span>
+                        <span>${row['Mobile']}</span>
+                    </p>`;
+                }
+
+                if (row['Mail']) {
+                    popupContent += `<p style="margin: 5px 0; display: flex; align-items: center;">
+                        <span style="min-width: 24px; color: #007bff; margin-right: 5px;">✉️</span>
+                        <span><a href="mailto:${row['Mail']}" style="color: #007bff; text-decoration: none;">${row['Mail']}</a></span>
+                    </p>`;
+                }
+
+                if (row['Website']) {
+                    popupContent += `<p style="margin: 5px 0; display: flex; align-items: center;">
+                        <span style="min-width: 24px; color: #007bff; margin-right: 5px;">🌐</span>
+                        <span><a href="${row['Website']}" target="_blank" style="color: #007bff; text-decoration: none;">${row['Website']}</a></span>
+                    </p>`;
+                }
+
+                popupContent += `</div>`;
+
+                const popup = new mapboxgl.Popup({
+                    closeButton: true,
+                    className: 'custom-popup',
+                    maxWidth: '400px' // Ensure popup allows wider content
+                })
                     .setLngLat(e.lngLat)
-                    .setHTML(`
-                        <h3>${name}</h3>
-                        <p>${row['City']}</p>
-                    `)
+                    .setHTML(popupContent)
                     .addTo(map);
             });
 
@@ -615,6 +667,10 @@
         });
     </script>
 
+</body>
+
+
+</html>
 </body>
 
 </html>
