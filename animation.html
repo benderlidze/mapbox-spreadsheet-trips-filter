@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Style circles with a data-driven property</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <link href="https://api.mapbox.com/mapbox-assembly/v1.3.0/assembly.min.css" rel="stylesheet">
+    <script id="search-js" defer="" src="https://api.mapbox.com/search-js/v1.0.0/web.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://npmcdn.com/@turf/turf/turf.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            flex: 1;
+            height: 100vh;
+        }
+
+        .mapboxgl-popup.mapboxgl-popup-anchor-top {
+            max-width: 400px !important;
+        }
+
+        .main {
+            display: flex;
+            flex-direction: row;
+            height: 100vh;
+        }
+
+        #info {
+            display: flex;
+            flex-direction: column;
+            width: 30%;
+            padding: 20px;
+            background: white;
+            overflow-y: auto;
+            box-shadow: 0 0px 15px rgba(0, 0, 0, 0.5);
+            z-index: 1;
+        }
+
+        .location-item {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #ffffff;
+            box-shadow: 0 0px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow-x: clip;
+        }
+
+        .location-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .location-name {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            color: #333;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .location-detail {
+            margin: 4px 0;
+            color: #666;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            word-break: break-all;
+        }
+
+        .location-detail svg {
+            margin-right: 8px;
+            width: 16px;
+            height: 16px;
+        }
+
+        .priority-tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .mapboxgl-ctrl.mapboxgl-ctrl-group {
+            width: 100% !important;
+            padding: 5px !important;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 20px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main">
+        <div id="map"></div>
+    </div>
+
+    <script>
+        const id = new URLSearchParams(window.location.search).get('id');
+        let bounds;
+        const appData = {
+            points: [],
+        };
+
+        mapboxgl.accessToken = 'pk.eyJ1Ijoic2VyaHV6IiwiYSI6ImNseXpvc3RlczJpbnIya3FscDU2aHc5d3EifQ.FHtPjde_lqensSHZxqthgw';
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v11',
+            zoom: 5.6,
+            center: { lng: 11.925495270350808, lat: 42.631615532606304 },
+            projection: 'mercator'
+        });
+
+        map.on('load', () => {
+            const styleLayers = map.getStyle().layers;
+            styleLayers.forEach(layer => {
+                map.setLayoutProperty('admin-1-boundary', 'visibility', 'none');
+                map.getStyle().layers
+                    .filter(i => i.id.includes("label") && !i.id.includes("country-label"))
+                    .map(d => {
+                        map.setLayoutProperty(d.id, 'visibility', 'none');
+                    })
+            });
+
+            map.addSource('lines', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRtswzG8lnl6KTXTPzM_03rP4tQsNTvdMHgSjoEgVC_t7MJIy0hEewdGnU2m9b0XwPkUPSvbyfQjMcf/pub?output=csv")
+                .then(data => {
+                    console.log(data);
+                    bounds = new mapboxgl.LngLatBounds();
+                    const points = data
+                        .filter(row => row["COORDINATES"] !== "")
+                        .filter(row => id ? row["ITINERARY_ID"] === id : true)
+                        .map((row, index) => {
+                            console.log('row', row);
+                            console.log('row', row["COORDINATES"]);
+                            console.log('row', row["COORDINATES"].split(',').map(parseFloat));
+                            const [lat, lon] = row["COORDINATES"].split(',').map(parseFloat);
+                            console.log('lat, lon', lat, lon);
+                            bounds.extend([lon, lat]);
+                            return {
+                                type: 'Feature',
+                                id: index,
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: [lon, lat]
+                                },
+                                properties: {
+                                    ...row,
+                                    LOCATION: row['STEP_NUMBER'] + '. ' + row["LOCATION"],
+                                }
+                            }
+                        });
+
+                    points.sort((a, b) => parseInt(a.properties.STEP_NUMBER) - parseInt(b.properties.STEP_NUMBER));
+
+                    const lineFeatures = [];
+                    for (let i = 0; i < points.length - 1; i++) {
+                        lineFeatures.push({
+                            type: 'Feature',
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: [
+                                    points[i].geometry.coordinates,
+                                    points[i + 1].geometry.coordinates
+                                ]
+                            },
+                            properties: {
+                                fromStep: points[i].properties.STEP_NUMBER,
+                                toStep: points[i + 1].properties.STEP_NUMBER
+                            }
+                        });
+                    }
+
+                    map.fitBounds(bounds, { padding: 150 });
+
+                    map.getSource('lines').setData({
+                        type: 'FeatureCollection',
+                        features: lineFeatures
+                    });
+
+                    console.log(points);
+                    appData.points = points;
+                    map.getSource('points').setData({
+                        type: 'FeatureCollection',
+                        features: appData.points
+                    });
+                });
+
+            map.addSource('points', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            map.addLayer({
+                id: 'route-lines',
+                type: 'line',
+                source: 'lines',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#9f853e',
+                    'line-width': 2,
+                    'line-opacity': 0.7
+                }
+            });
+
+            map.loadImage('icon.png', (error, image) => {
+                if (error) throw error;
+                map.addImage('custom-marker', image);
+            });
+
+            map.addLayer({
+                id: 'points-base',
+                type: 'circle',
+                source: 'points',
+                paint: {
+                    'circle-radius': 12,
+                    'circle-color': 'white',
+                }
+            });
+
+            map.addLayer({
+                id: 'points-icons',
+                type: 'symbol',
+                source: 'points',
+                layout: {
+                    'icon-image': 'custom-marker',
+                    'icon-size': 0.3,
+                    'icon-allow-overlap': true,
+                    'icon-ignore-placement': true
+                }
+            });
+
+            map.addLayer({
+                id: 'point-labels',
+                type: 'symbol',
+                source: 'points',
+                layout: {
+                    'text-field': ['get', 'LOCATION'],
+                    'text-anchor': 'left',
+                    'text-offset': [1.5, 0],
+                    'text-size': 14
+                },
+                paint: {
+                    'text-color': '#000',
+                    'text-halo-color': '#fff',
+                    'text-halo-width': 1
+                }
+            });
+
+            map.on('mouseenter', 'points-icons', (e) => {
+                map.getCanvas().style.cursor = 'pointer';
+            });
+
+            map.on('mouseleave', 'points-icons', () => {
+                map.getCanvas().style.cursor = '';
+            });
+
+            map.on('click', 'points-icons', (e) => {
+                const row = e.features[0].properties;
+                const name = row['First Name'] + ' ' + row['Last Name'];
+                const popup = new mapboxgl.Popup()
+                    .setLngLat(e.lngLat)
+                    .setHTML(`
+                        <h3>${name}</h3>
+                        <p>${row['City']}</p>
+                    `)
+                    .addTo(map);
+            });
+        });
+    </script>
+</body>
+
+</html>
