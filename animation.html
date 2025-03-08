@@ -152,6 +152,23 @@
                 }
             });
 
+            // Add sources for animated line and glow effect
+            map.addSource('animated-line', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
+            map.addSource('glow-line', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: []
+                }
+            });
+
             d3.csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vRtswzG8lnl6KTXTPzM_03rP4tQsNTvdMHgSjoEgVC_t7MJIy0hEewdGnU2m9b0XwPkUPSvbyfQjMcf/pub?output=csv")
                 .then(data => {
                     console.log(data);
@@ -183,6 +200,38 @@
                     points.sort((a, b) => parseInt(a.properties.STEP_NUMBER) - parseInt(b.properties.STEP_NUMBER));
 
                     const lineFeatures = [];
+                    // Collect all coordinates for the full path
+                    let routeCoordinates = points.map(point => point.geometry.coordinates);
+
+                    // Create a Turf.js lineString from our coordinates
+                    const route = turf.lineString(routeCoordinates);
+
+                    // Get total route distance in kilometers
+                    const totalDistance = turf.length(route, { units: 'kilometers' });
+
+                    // Determine chunk size - split line into segments
+                    // We use a small fraction of the total distance to get many segments
+                    const chunkSize = totalDistance / 500;
+
+                    // Split the route into small chunks for animation
+                    const chunkedLine = turf.lineChunk(route, chunkSize, { units: 'kilometers' });
+
+                    // Extract all coordinates from chunked segments
+                    let animationCoordinates = [];
+                    chunkedLine.features.forEach(segment => {
+                        // Skip last coordinate of each segment except final one (to avoid duplicates)
+                        animationCoordinates = animationCoordinates.concat(
+                            segment.geometry.coordinates.slice(0, segment.geometry.coordinates.length - 1)
+                        );
+                    });
+                    // Add final coordinate
+                    if (chunkedLine.features.length > 0) {
+                        const lastSegment = chunkedLine.features[chunkedLine.features.length - 1];
+                        const lastCoord = lastSegment.geometry.coordinates[lastSegment.geometry.coordinates.length - 1];
+                        animationCoordinates.push(lastCoord);
+                    }
+
+                    // Create original line features for display
                     for (let i = 0; i < points.length - 1; i++) {
                         lineFeatures.push({
                             type: 'Feature',
@@ -207,6 +256,26 @@
                         features: lineFeatures
                     });
 
+                    // Initialize empty animated line
+                    map.getSource('animated-line').setData({
+                        type: 'Feature',
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: []
+                        }
+                    });
+
+                    map.getSource('glow-line').setData({
+                        type: 'Feature',
+                        geometry: {
+                            type: 'LineString',
+                            coordinates: []
+                        }
+                    });
+
+                    // Start the animation after a short delay with our chunked coordinates
+                    setTimeout(() => animateLine(animationCoordinates), 1000);
+
                     console.log(points);
                     appData.points = points;
                     map.getSource('points').setData({
@@ -214,6 +283,39 @@
                         features: appData.points
                     });
                 });
+
+            // Add animation function
+            function animateLine(coordinates) {
+                let step = 0;
+                const animationSpeed = 20; // milliseconds per segment (faster since we have more segments now)
+
+                function animate() {
+                    if (step <= coordinates.length) {
+                        // Update the animated line
+                        map.getSource('animated-line').setData({
+                            type: 'Feature',
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: coordinates.slice(0, step)
+                            }
+                        });
+
+                        // Update the glow line (follows slightly behind)
+                        map.getSource('glow-line').setData({
+                            type: 'Feature',
+                            geometry: {
+                                type: 'LineString',
+                                coordinates: step > 1 ? coordinates.slice(0, step - 1) : []
+                            }
+                        });
+
+                        step++;
+                        setTimeout(animate, animationSpeed);
+                    }
+                }
+
+                animate();
+            }
 
             map.addSource('points', {
                 type: 'geojson',
@@ -237,6 +339,39 @@
                     'line-opacity': 0.7
                 }
             });
+
+            // Add animated line layer
+            map.addLayer({
+                id: 'animated-line',
+                type: 'line',
+                source: 'animated-line',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#3887be',
+                    'line-width': 3,
+                    'line-opacity': 0.8
+                }
+            });
+
+            // Add blue glow effect layer
+            map.addLayer({
+                id: 'glow-line',
+                type: 'line',
+                source: 'glow-line',
+                layout: {
+                    'line-join': 'round',
+                    'line-cap': 'round'
+                },
+                paint: {
+                    'line-color': '#6cc0ff',
+                    'line-width': 20,
+                    'line-opacity': 0.4,
+                    'line-blur': 8
+                }
+            }, 'animated-line'); // Place below the main animated line
 
             map.loadImage('icon.png', (error, image) => {
                 if (error) throw error;
