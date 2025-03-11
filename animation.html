@@ -132,6 +132,8 @@
             center: { lng: 11.925495270350808, lat: 42.631615532606304 },
             projection: 'mercator'
         });
+        // Disable zoom on page scroll
+        map.scrollZoom.disable();
 
         map.on('load', () => {
             const styleLayers = map.getStyle().layers;
