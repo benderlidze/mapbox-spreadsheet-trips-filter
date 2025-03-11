@@ -419,25 +419,25 @@
                 }
             });
 
-            map.on('mouseenter', 'points-icons', (e) => {
-                map.getCanvas().style.cursor = 'pointer';
-            });
+            // map.on('mouseenter', 'points-icons', (e) => {
+            //     map.getCanvas().style.cursor = 'pointer';
+            // });
 
-            map.on('mouseleave', 'points-icons', () => {
-                map.getCanvas().style.cursor = '';
-            });
+            // map.on('mouseleave', 'points-icons', () => {
+            //     map.getCanvas().style.cursor = '';
+            // });
 
-            map.on('click', 'points-icons', (e) => {
-                const row = e.features[0].properties;
-                const name = row['First Name'] + ' ' + row['Last Name'];
-                const popup = new mapboxgl.Popup()
-                    .setLngLat(e.lngLat)
-                    .setHTML(`
-                        <h3>${name}</h3>
-                        <p>${row['City']}</p>
-                    `)
-                    .addTo(map);
-            });
+            // map.on('click', 'points-icons', (e) => {
+            //     const row = e.features[0].properties;
+            //     const name = row['First Name'] + ' ' + row['Last Name'];
+            //     const popup = new mapboxgl.Popup()
+            //         .setLngLat(e.lngLat)
+            //         .setHTML(`
+            //             <h3>${name}</h3>
+            //             <p>${row['City']}</p>
+            //         `)
+            //         .addTo(map);
+            // });
         });
     </script>
 </body>
