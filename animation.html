@@ -130,10 +130,11 @@
             style: 'mapbox://styles/mapbox/light-v11',
             zoom: 5.6,
             center: { lng: 11.925495270350808, lat: 42.631615532606304 },
-            projection: 'mercator'
+            projection: 'mercator',
+            cooperativeGestures: true
         });
         // Disable zoom on page scroll
-        map.scrollZoom.disable();
+        //map.scrollZoom.disable();
 
         map.on('load', () => {
             const styleLayers = map.getStyle().layers;
