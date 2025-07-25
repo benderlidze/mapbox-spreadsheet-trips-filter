@@ -282,24 +282,24 @@
             searchBox.mapboxgl = mapboxgl;
             map.addControl(searchBox);
 
-
+            // CORS TEMP FIX
             //fetch("https://proxy.corsfix.com/?https://api.xenion.it/getmasterdata?callername=mapbox34534534556666423356&user=dn6b125b7fcb8b&key=2011309c24f3a6f61f18c69c1e1922d6329a6d50cf4d6fdc18&propertycode=0")
             //fetch("data.json")
             //const url = 'https://corsproxy.io/' + encodeURIComponent('https://api.xenion.it/getmasterdata?callername=mapbox34534534556666423356&user=dn6b125b7fcb8b&key=2011309c24f3a6f61f18c69c1e1922d6329a6d50cf4d6fdc18&propertycode=0');
-            //const url = 'https://thingproxy.freeboard.io/fetch/' + encodeURIComponent('https://api.xenion.it/getmasterdata?callername=mapbox34534534556666423356&user=dn6b125b7fcb8b&key=2011309c24f3a6f61f18c69c1e1922d6329a6d50cf4d6fdc18&propertycode=0');
+            const url = 'https://thingproxy.freeboard.io/fetch/' + encodeURIComponent('https://api.xenion.it/getmasterdata?callername=mapbox34534534556666423356&user=dn6b125b7fcb8b&key=2011309c24f3a6f61f18c69c1e1922d6329a6d50cf4d6fdc18&propertycode=0');
             //const url = 'https://cors-proxy.htmldriven.com/?url=' + encodeURIComponent('https://api.xenion.it/getmasterdata?callername=mapbox34534534556666423356&user=dn6b125b7fcb8b&key=2011309c24f3a6f61f18c69c1e1922d6329a6d50cf4d6fdc18&propertycode=0');
 
-            fetch("https://handler-cors.vercel.app/fetch", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    url: "https://api.xenion.it/getmasterdata?callername=mapbox34534534556666423356&user=dn6b125b7fcb8b&key=2011309c24f3a6f61f18c69c1e1922d6329a6d50cf4d6fdc18&propertycode=0",
-                })
-            })
+            // fetch("https://handler-cors.vercel.app/fetch", {
+            //     method: "POST",
+            //     headers: {
+            //         "Content-Type": "application/json",
+            //     },
+            //     body: JSON.stringify({
+            //         url: "https://api.xenion.it/getmasterdata?callername=mapbox34534534556666423356&user=dn6b125b7fcb8b&key=2011309c24f3a6f61f18c69c1e1922d6329a6d50cf4d6fdc18&propertycode=0",
+            //     })
+            // })
 
-                //fetch(url)
+            fetch(url)
                 .then(response => response.json())
                 .then(data => {
 
